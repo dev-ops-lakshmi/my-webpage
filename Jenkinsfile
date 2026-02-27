@@ -16,7 +16,7 @@ pipeline {
                     
                     // Build and start services using your docker-compose file
                     // Use --build to ensure fresh images are created
-                    sh "docker-compose up --build -d --scale ui=2 --scale backend=2"
+                    docker-compose up --build -d --scale ui=2 --scale backend=2
                 }
             }
         }
@@ -32,7 +32,7 @@ pipeline {
     post {
         failure {
             // Optional: Clean up on failure
-            sh "docker-compose down"
+            docker-compose down
         }
     }
 }
