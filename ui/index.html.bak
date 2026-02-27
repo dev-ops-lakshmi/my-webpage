@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<body style="text-align:center; font-family: sans-serif; padding-top: 50px; background-color: #f4f4f4;">
+    <div id="login-form" style="background: white; display: inline-block; padding: 20px; border-radius: 8px; shadow: 0 0 10px rgba(0,0,0,0.1);">
+        <h2>Login to Portal</h2>
+        <input type="text" id="user" placeholder="Username" style="padding:10px;"><br><br>
+        <input type="password" id="pass" placeholder="Password" style="padding:10px;"><br><br>
+        <button onclick="login()" style="padding: 10px 20px; cursor:pointer;">Login</button>
+    </div>
+
+    <div id="dashboard" style="display:none;">
+        <h2 id="welcome"></h2>
+        <button onclick="getService('Payment')" style="padding:10px;">Payment Service</button>
+        <button onclick="getService('Inventory')" style="padding:10px;">Inventory Service</button>
+        <button onclick="getService('Reporting')" style="padding:10px;">Reporting Service</button>
+        <h1 id="service-msg" style="color: darkblue; margin-top: 30px;"></h1>
+    </div>
+
+    <script>
+        function login() {
+            const user = document.getElementById('user').value;
+            if(user === 'admin') {
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                document.getElementById('welcome').innerText = "Welcome, " + user + "!";
+            } else { alert("Use 'admin' to login"); }
+        }
+        function getService(name) {
+            // Points to the NEW Backend port 5005
+            fetch('http://localhost:5000/api/welcome/' + name)
+                .then(res => res.text())
+                .then(data => document.getElementById('service-msg').innerText = data)
+                .catch(err => alert("Backend not reachable on 5005"));
+        }
+    </script>
+</body>
+</html>
