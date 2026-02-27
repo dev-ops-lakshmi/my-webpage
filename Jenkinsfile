@@ -13,10 +13,11 @@ pipeline {
         stage('Build & Deploy') {
             steps {
                 script {
+
                     
                     // Build and start services using your docker-compose file
                     // Use --build to ensure fresh images are created
-                    docker-compose up --build -d --scale ui=2 --scale backend=2
+                    sh "docker compose up --build -d --scale ui=2 --scale backend=2"
                 }
             }
         }
@@ -32,7 +33,7 @@ pipeline {
     post {
         failure {
             // Optional: Clean up on failure
-            docker-compose down
+            sh "docker compose down"
         }
     }
 }
