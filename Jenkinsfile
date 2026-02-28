@@ -1,35 +1,40 @@
 pipeline {
     agent { label 'agent' }
 
-    stages {
-        stage('Checkout') {
+stages {
+        stage('Checkout & Cleanup') {
             steps {
-                // Pulls code from your Git repo
-                checkout scm 
+                checkout scm
+                script {
+                    // Force delete any accidental directories created by previous failed mounts
+                    sh 'rm -rf nginx.conf && git checkout nginx.conf'
+                    // Stop existing containers to ensure a clean state
+                    sh 'docker compose down --remove-orphans || true'
+                }
             }
         }
 
-stage('Build & Deploy') {
-    steps {
-        script {
-            // 1. COMPLETELY WIPE the corrupted nginx.conf (it's currently a folder)
-            sh "rm -rf nginx.conf"
-            
-            // 2. RESTORE the actual file from your Git repo
-            sh "git checkout nginx.conf"
-            
-            // 3. VERIFY: It must be a FILE (-f), not a directory
-            sh 'if [ -d "nginx.conf" ]; then echo "ERROR: nginx.conf is STILL a directory"; exit 1; fi'
-            
-            // 4. CLEAN UP old containers and volumes to reset the mount state
-            sh "docker compose down -v || true"
-            
-            // 5. RUN: Use --force-recreate to break the bad mount link
-            sh "docker compose up --build -d --force-recreate --scale ui=2 --scale backend=2"
-        }
-    }
-}
+        stage('Update Compose with Sed') {
+            steps {
+                script {
+                    // 1. Get the absolute path of the current workspace
+                    // This path MUST exist on the HOST machine for the mount to work
+                    def absolutePath = sh(script: 'readlink -f nginx.conf', returnStdout: true).trim()
+                    echo "Dynamic Nginx Config Path: ${absolutePath}"
 
+                    // 2. Use sed to replace the placeholder in docker-compose.yml
+                    // We use '|' as a delimiter in sed because the path contains slashes '/'
+                    sh "sed -i 's|NGINX_CONF_PLACEHOLDER|${absolutePath}|g' docker-compose.yml"
+                }
+            }
+        }
+
+        stage('Deploy & Scale') {
+            steps {
+                // Now run docker compose with the updated file
+                sh "docker compose up -d --build --scale ui=2 --scale backend=2"
+            }
+        }
 
         stage('Verify') {
             steps {
