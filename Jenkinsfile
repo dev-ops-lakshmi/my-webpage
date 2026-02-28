@@ -8,25 +8,29 @@ pipeline {
                 checkout scm 
             }
         }
+    }
 
-        stage('Fix Mounts & Deploy') {
-            steps {
-                script {
-                    // 1. DELETE THE FAKE DIRECTORY: Docker creates this if the file was missing
-                    // Run this EVERY time to ensure the host is clean
-                    sh 'rm -rf nginx.conf'
-                    
-                    // 2. FORCE RESTORE: Ensure the actual file from Git is present
-                    sh 'git checkout nginx.conf'
-                    
-                    // 3. VERIFY: Confirm it is a file (not a directory) before launching
-                    sh '[ -f nginx.conf ] || (echo "ERROR: nginx.conf is missing or still a directory" && exit 1)'
-
-                    // 4. DEPLOY: Using --force-recreate ensures no stale volume data remains
-                    sh "docker compose up --build -d --force-recreate --scale ui=2 --scale backend=2"
-                }
-            }
+stage('Build & Deploy') {
+    steps {
+        script {
+            // 1. COMPLETELY WIPE the corrupted nginx.conf (it's currently a folder)
+            sh "rm -rf nginx.conf"
+            
+            // 2. RESTORE the actual file from your Git repo
+            sh "git checkout nginx.conf"
+            
+            // 3. VERIFY: It must be a FILE (-f), not a directory
+            sh 'if [ -d "nginx.conf" ]; then echo "ERROR: nginx.conf is STILL a directory"; exit 1; fi'
+            
+            // 4. CLEAN UP old containers and volumes to reset the mount state
+            sh "docker compose down -v || true"
+            
+            // 5. RUN: Use --force-recreate to break the bad mount link
+            sh "docker compose up --build -d --force-recreate --scale ui=2 --scale backend=2"
         }
+    }
+}
+
 
         stage('Verify') {
             steps {
