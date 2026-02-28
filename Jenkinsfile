@@ -8,7 +8,6 @@ pipeline {
                 checkout scm 
             }
         }
-    }
 
 stage('Build & Deploy') {
     steps {
