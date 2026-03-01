@@ -2,43 +2,37 @@ pipeline {
     agent { label 'agent' }
 
     options {
-        // CRITICAL: Stop Jenkins from trying to clean the workspace 
-        // with the Git plugin, which is failing due to root permissions.
+        // Prevents the "Failed to clean workspace" error on start
         skipDefaultCheckout(true)
     }
 
     stages {
-        stage('Manual Clean & Checkout') {
+        stage('Dynamic Host Cleanup') {
             steps {
                 script {
-                    // 1. Use a root-level Docker container to fix permissions on the host path.
-                    // This 'chowns' everything to UID 1000 so Jenkins can handle the files.
-                    sh "docker run --rm -v ${env.WORKSPACE}:/ws alpine chown -R 1000:1000 /ws || true"
+                    // 1. Force-delete the workspace folder ON THE HOST VM using a root container.
+                    // This clears the "ghost" directories (nginx.conf) and root-owned files.
+                    // We mount the parent folder so we can wipe the current workspace folder completely.
+                    sh "docker run --rm -v /home/jenkins/workspace:/parent alpine rm -rf /parent/${env.JOB_BASE_NAME}"
                     
-                    // 2. Now clean the workspace safely
+                    // 2. Now that the Host is clean, the Agent can safely clean its internal view
                     cleanWs()
                     
-                    // 3. Manually perform the checkout now that the space is clean
+                    // 3. Pull fresh code
                     checkout scm
                     
-                    // 4. Final safety check: remove 'nginx.conf' if it was left as a directory
+                    // 4. Double check nginx.conf is a file, not a directory
                     sh "if [ -d nginx.conf ]; then rm -rf nginx.conf; fi"
                     sh "git checkout nginx.conf"
                 }
             }
         }
 
-        stage('Build & Deploy') {
+        stage('Deploy') {
             steps {
-                // Ensure --build is used to bake the nginx.conf into the container image
-                sh "docker compose up --build -d --scale ui=2 --scale backend=2"
-            }
-        }
-
-        stage('Verify') {
-            steps {
-                sh "docker ps"
-                sh "docker compose logs nginx --tail=20"
+                // Now the Host and Agent are perfectly synced. 
+                // The Host will see ./nginx.conf as a file.
+                sh "docker compose up -d --build --scale ui=2 --scale backend=2"
             }
         }
     }
@@ -46,7 +40,7 @@ pipeline {
     post {
         always {
             script {
-                // Fix permissions AGAIN at the end so the NEXT build doesn't fail at the start.
+                // Final fix: give files back to Jenkins user so 'post' steps don't fail
                 sh "docker run --rm -v ${env.WORKSPACE}:/ws alpine chown -R 1000:1000 /ws || true"
             }
         }
