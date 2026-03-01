@@ -19,7 +19,7 @@ pipeline {
             steps {
                 // 3. Use --build to trigger the Dockerfile.nginx build.
                 // This sends your nginx.conf to the Docker daemon automatically.
-                sh "docker compose up -d --build --scale ui=2 --scale backend=2"
+                sh "docker compose up -d --build --scale ui=3 --scale backend=3"
             }
         }
 
