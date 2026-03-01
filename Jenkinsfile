@@ -1,40 +1,44 @@
 pipeline {
-    agent { 
-        label 'agent' 
-    }
+    agent { label 'agent' }
 
     stages {
-        stage('Checkout') {
+        stage('Cleanup & Checkout') {
             steps {
-                checkout scm // Pulls code from your Git repo
+                script {
+                    // 1. Force remove any 'ghost' directories left over from 
+                    // previous failed volume mount attempts.
+                    sh "if [ -d nginx.conf ]; then rm -rf nginx.conf; fi"
+                }
+                // 2. Clean the workspace and pull fresh code
+                cleanWs()
+                checkout scm
             }
         }
 
         stage('Build & Deploy') {
             steps {
-                script {
-
-                    
-                    // Build and start services using your docker-compose file
-                    // Use --build to ensure fresh images are created
-                    sh "docker compose up --build -d --scale ui=2 --scale backend=2"
-                }
+                // 3. Use --build to trigger the Dockerfile.nginx build.
+                // This sends your nginx.conf to the Docker daemon automatically.
+                sh "docker compose up -d --build --scale ui=2 --scale backend=2"
             }
         }
 
         stage('Verify') {
             steps {
-                // Check if all 5 containers (2 UI, 2 Backend, 1 Nginx) are up
                 sh "docker ps"
+                // Check logs to ensure Nginx loaded the baked-in config correctly
+                sh "docker compose logs nginx-lb --tail=20"
             }
         }
     }
 
     post {
-        failure {
-            // Optional: Clean up on failure
-            sh "docker compose down"
+        always {
+            script {
+                // 4. Ensure files are owned by the Jenkins user (UID 1000) 
+                // so the agent can delete them next time.
+                sh "docker run --rm -v ${env.WORKSPACE}:/ws alpine chown -R 1000:1000 /ws || true"
+            }
         }
     }
 }
-
