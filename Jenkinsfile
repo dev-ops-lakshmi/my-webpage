@@ -39,13 +39,13 @@ pipeline {
         }
         success {
             // Sends email only if the build finishes successfully
-            mail to: 'kondabhagyalakshmi97@gmail.com',
+            mail to: 'lakshmitalks10@gmail.com',
                  subject: "SUCCESS: Job '${env.JOB_NAME}' [${env.BUILD_NUMBER}]",
                  body: "The build was successful! You can view the details here: ${env.BUILD_URL}"
         }
         failure {
             // Sends email only if the build fails
-            mail to: 'kondabhagyalakshmi97@gmail.com',
+            mail to: 'lakshmitalks10@gmail.com',
                  subject: "FAILED: Job '${env.JOB_NAME}' [${env.BUILD_NUMBER}]",
                  body: "The build failed. Please check the console logs: ${env.BUILD_URL}console"
         }
